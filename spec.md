@@ -190,7 +190,7 @@ and, from `ecsCredentials[]`:
 - Responses MUST be **cached in memory keyed by `(did, lastObservedAtTime)`**, so re-queries, scroll-back, and shared operator DIDs (pattern B parents) resolve at most once per observation.
 - A failed resolve degrades gracefully: the row keeps the DID, trust chip, and pattern, and shows "details unavailable" in place of the credential fields; it MUST NOT block the list.
 
-[SRCH-ENR-4] **Forward compatibility.** Once the graph implements [TG-FCT-6a] (verana-spec PR #62) and its snippets carry `serviceName`, `serviceType`, `serviceDescription`, `serviceLogoUri`, `operatorName`, `operatorLogoUri`, `operatorCountryCode`, `serviceEndpoints[]`, and the `corporation*` trust signals, the app MUST prefer these snippet fields and skip the resolver and corporation calls for list rendering (feature-detected per hit: snippet field present and non-undefined). The endpoint badges of [SRCH-RES-1] then render from `snippet.serviceEndpoints[].type`. The resolver remains in use only for fields the snippet never carries (`registryId`, `address`) and for future detail views.
+[SRCH-ENR-4] **Snippet-first rendering.** When a `Did` snippet carries the card data, the app MUST render from it and skip the resolver and corporation calls for list rendering, feature-detected per hit. Two graph generations qualify: the [TG-FCT-6b] groups (`service`, `operator`, `corporation`, `endpoints`, and `ecosystems` when projected, detected by `service` being present) and the earlier flat fields (`serviceName`, `serviceType`, `serviceDescription`, `serviceLogoUri`, `operatorName`, `operatorLogoUri`, `operatorCountryCode`, `serviceEndpoints[]`, the `corporation*` signals, detected by `serviceName` being present). The endpoint badges of [SRCH-RES-1] render from `endpoints[].type` or `serviceEndpoints[].type`. The entity badges read `isCorporation` and `isEcosystem` (the ecosystem ids come from the `ecosystems` group when the response carries it). The app sends no `snippet` selector, so the graph's default projection applies. The resolver remains in use for the minimum snippet and for future detail views.
 
 Non-`Did` surfaces are rendered from the snippet alone; no enrichment call is made.
 
@@ -223,7 +223,7 @@ Each row is a **condensed, two-zone version of the verana.io `ProofOfTrustCard`*
   - badges are neutral (`bg-surface-2`, `text-muted`, `border-rule`), not colored: they state protocol reachability ("which protocols can I talk to it with"), not trust;
   - clicking a badge sets the `Did.serviceTypes` `containsAny` filter to that type and re-queries (same behaviour as a facet refinement per [SRCH-RES-3]).
 - **Trust chip** (top right of the SERVICE zone): Signal-Green `chip` "VERIFIED" when `trusted && !isTrustExpired`; muted chip "UNTRUSTED" when `includeUntrusted` surfaced a non-trusted DID. `pattern` and `operatorKind` are not shown as chips (they are implicit in the card content).
-- **Entity badges** (left of the trust chip): a purple `chip` "CORPORATION" when the DID is the declared DID of a `Corporation` entry, and a purple `chip` "ECOSYSTEM" when the DID controls one or more Ecosystems (tooltip lists the ecosystem ids). Sourced per [SRCH-ENR-2] (`isCorporation` / `ecosystemIds`).
+- **Entity badges** (left of the trust chip): a purple `chip` "CORPORATION" when the DID is the declared DID of a `Corporation` entry, and a purple `chip` "ECOSYSTEM" when the DID controls one or more Ecosystems (tooltip lists the ecosystem ids when the response carries them). Sourced per [SRCH-ENR-2] (`isCorporation` / `isEcosystem` / `ecosystemIds`).
 - On small widths the two zones stack vertically, SERVICE first.
 - The row is clickable. v1: opens the DID's resolver JSON in a new tab (`{RESOLVER_BASE_URL}/v4/verifiable-trust/resolve` result rendered raw or via a minimal drawer). A dedicated detail page is out of scope for v1.
 - `highlights[]` fragments, when present, MAY be rendered under the description in muted small text with `<em>` matches styled in accent color, after sanitization: treat fragments as text and re-apply only the `<em>` markers; never inject response HTML.
@@ -233,8 +233,8 @@ Each row is a **condensed, two-zone version of the verana.io `ProofOfTrustCard`*
 Simple single-zone rows from snippet data:
 
 - **Ecosystem**: eyebrow "ECOSYSTEM"; `id` (mono chip), DID (mono, truncated, copy), archived chip when `archived`.
-- **Corporation**: eyebrow "CORPORATION"; `id`, DID, `policyAddress` (mono, truncated), deposit and slash counters when present.
-- **CredentialSchema**: eyebrow "CREDENTIAL SCHEMA"; `title` and `description` when present (from the loaded schema body), `id` (mono chip), owning `ecosystemId`, archived chip.
+- **Corporation**: eyebrow "CORPORATION"; `id`, DID, `policyAddress` (mono, truncated), deposit and slash counters when present (from the `trust` group, or the flat fields on the earlier graph generation).
+- **CredentialSchema**: eyebrow "CREDENTIAL SCHEMA"; `title` and `description` when present (from the `schema` group or the flat fields), `id` (mono chip), the owning ecosystem id (`ecosystem.id` or `ecosystemId`), archived chip.
 - **ServiceEndpoint**: eyebrow "SERVICE ENDPOINT"; `type` chip (`MCP`, `A2A`, ...), the `serviceEndpoint` URI (mono, truncated), and the owning DID.
 
 These rows MAY be enriched in later versions (e.g. resolving the Ecosystem DID for its display identity); v1 renders snippets only.
